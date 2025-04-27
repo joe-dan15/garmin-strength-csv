@@ -1,13 +1,16 @@
 name: Update Garmin CSV
 
 on:
+  # 👇 allows you to trigger this workflow manually
+  workflow_dispatch:
+
+  # 👇 still runs on a cron
   schedule:
-    - cron: '0 4 * * *'  # daily at 06:00 Europe/Luxembourg
+    - cron: '0 4 * * *'   # daily at 06:00 Europe/Luxembourg time
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
 
@@ -24,9 +27,9 @@ jobs:
 
       - name: Run GarminDB & export CSV
         env:
-          GARMIN_USER: ${{ GARMIN_USER.GARMIN_USER }}
-          GARMIN_PASS: ${{ GARMIN_USER.GARMIN_PASS }}
-          START_DATE_LOCAL: ${{ GARMIN_USER.START_DATE_LOCAL }}
+          GARMIN_USER: ${{ secrets.GARMIN_USER }}
+          GARMIN_PASS: ${{ secrets.GARMIN_PASS }}
+          START_DATE_LOCAL: ${{ secrets.START_DATE_LOCAL }}
         run: |
           mkdir -p "$HOME/.GarminDb"
           jq -n \
