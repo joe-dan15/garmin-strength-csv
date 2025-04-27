@@ -12,4 +12,3 @@ jq -n \
 ~/.local/bin/garmindb_cli --latest --download --import --analyze
 ~/.local/bin/garmindb_cli --export activities --output garmin_activities.csv
 
-chmod +x run.sh
