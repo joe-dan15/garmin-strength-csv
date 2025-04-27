@@ -1,0 +1,49 @@
+name: Update Garmin CSV
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # daily at 06:00 Europe/Luxembourg
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Make run.sh executable
+        run: chmod +x run.sh
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install GarminDB and jq
+        run: pip install --user garmindb jq
+
+      - name: Run GarminDB & export CSV
+        env:
+          GARMIN_USER: ${{ GARMIN_USER.GARMIN_USER }}
+          GARMIN_PASS: ${{ GARMIN_USER.GARMIN_PASS }}
+          START_DATE_LOCAL: ${{ GARMIN_USER.START_DATE_LOCAL }}
+        run: |
+          mkdir -p "$HOME/.GarminDb"
+          jq -n \
+            --arg u "$GARMIN_USER" \
+            --arg p "$GARMIN_PASS" \
+            --arg d "$START_DATE_LOCAL" \
+            '{username:$u, password:$p, start_date_local:$d}' \
+            > "$HOME/.GarminDb/GarminConnectConfig.json"
+          ~/.local/bin/garmindb_cli --latest --download --import --analyze
+          ~/.local/bin/garmindb_cli --export activities --output garmin_activities.csv
+
+      - name: Publish CSV to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: .
+          keep_files: false
+          force_orphan: true
+          include: garmin_activities.csv
