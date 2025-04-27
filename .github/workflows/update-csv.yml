@@ -1,36 +1,49 @@
 name: Update Garmin CSV
 
 on:
-  # 👇 allows you to trigger this workflow manually
+  # Manual trigger in the Actions UI
   workflow_dispatch:
-
-  # 👇 still runs on a cron
+  # Scheduled daily at 06:00 Europe/Luxembourg (04:00 UTC)
   schedule:
-    - cron: '0 4 * * *'   # daily at 06:00 Europe/Luxembourg time
+    - cron: '0 4 * * *'
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      # 1) Check out your repo
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Make run.sh executable
-        run: chmod +x run.sh
+      # 2) Install system deps (for jq)
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
 
-      - name: Set up Python
+      # 3) Set up Python
+      - name: Set up Python 3.x
         uses: actions/setup-python@v4
         with:
           python-version: '3.x'
 
-      - name: Install GarminDB and jq
-        run: pip install --user garmindb jq
+      # 4) Install GarminDB
+      - name: Install GarminDB
+        run: pip install --user garmindb
 
-      - name: Run GarminDB & export CSV
+      # 5) Run GarminDB CLI & export CSV
+      - name: Fetch new data & export CSV
         env:
-          GARMIN_USER: ${{ secrets.GARMIN_USER }}
-          GARMIN_PASS: ${{ secrets.GARMIN_PASS }}
+          # Your Garmin Connect credentials in repo Secrets
+          GARMIN_USER:     ${{ secrets.GARMIN_USER }}
+          GARMIN_PASS:     ${{ secrets.GARMIN_PASS }}
           START_DATE_LOCAL: ${{ secrets.START_DATE_LOCAL }}
         run: |
+          # Ensure pip --user bin is on PATH
+          export PATH="$HOME/.local/bin:$PATH"
+
+          # Write your GarminConnectConfig.json
           mkdir -p "$HOME/.GarminDb"
           jq -n \
             --arg u "$GARMIN_USER" \
@@ -38,15 +51,20 @@ jobs:
             --arg d "$START_DATE_LOCAL" \
             '{username:$u, password:$p, start_date_local:$d}' \
             > "$HOME/.GarminDb/GarminConnectConfig.json"
-          ~/.local/bin/garmindb_cli --latest --download --import --analyze
-          ~/.local/bin/garmindb_cli --export activities --output garmin_activities.csv
 
+          # Incremental download/import/analyze
+          garmindb_cli.py --latest --download --import --analyze
+
+          # Export full activity table to CSV
+          garmindb_cli.py --export activities --output garmin_activities.csv
+
+      # 6) Publish only garmin_activities.csv to gh-pages
       - name: Publish CSV to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: .
-          keep_files: false
           force_orphan: true
+          keep_files: false
           include: garmin_activities.csv
